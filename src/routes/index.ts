@@ -4,7 +4,8 @@ import BallDontLieApiClient from "../BallDontLieApiClient";
 
 async function indexRoutes(server: FastifyInstance, options: FastifyServerOptions) {
     server.get("/", async (request: FastifyRequest, reply:FastifyReply) => {
-        return "Hello World"
+        const apiClient = new BallDontLieApiClient(server.config.API_TOKEN);
+        return apiClient.fetchAllPlayersForTeam(1)
     });
 }
 

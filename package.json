@@ -4,8 +4,9 @@
   "main": "server.js",
   "scripts": {
     "test:jest": "jest --passWithNoTests --updateSnapshot",
+    "clean": "rm -rf dist",
     "build": "tsc -p tsconfig.json",
-    "start": "node ./src/server.js"
+    "start": "node ./dist/src/server.js"
   },
   "keywords": [],
   "author": "",
