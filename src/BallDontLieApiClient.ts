@@ -1,6 +1,7 @@
 import * as R from 'ramda';
+import {FetchAdapter} from "./FetchAdapter";
 
-interface TeamById {
+export interface TeamById {
     id: number,
     teamName: string
 }
@@ -30,8 +31,9 @@ interface TeamsResponse {
 export default class BallDontLieApiClient {
     fetchOptions: object
     baseURL = "https://api.balldontlie.io/v1";
+    fetchAdapter: FetchAdapter = new FetchAdapter()
 
-    constructor(apiKey: string) {
+    constructor(apiKey: string, fetchAdapter?: FetchAdapter | null) {
         this.fetchOptions = {
             method: 'GET',
             headers: {
@@ -39,18 +41,26 @@ export default class BallDontLieApiClient {
                 Authorization: apiKey
             }
         };
+        if(fetchAdapter) this.fetchAdapter = fetchAdapter
     }
 
-    fetchAllPlayersForAllTeams = (allTeams: [TeamById]) =>
-        Promise.all(
+    fetchAllPlayersForAllTeams = async (allTeams: [TeamById]) => {
+        //this api can't seem to handle all of these paginated requests at once, so I'm using
+        //allSettled here and filtering out all the rejected requests for this exercise
+        const resolvedPromises = await Promise.allSettled(
             allTeams.map(async (team) => {
-                const draftPicks = await this.fetchAllPlayersForTeam(team.id);
-                return {
+                //fetch our draft picks for this team
+                const draftRounds = await this.fetchAllPlayersForTeam(team.id);
+                return { //customize response
                     teamName: team.teamName,
-                    draftRounds: draftPicks,
+                    draftRounds: draftRounds,
                 };
             })
         );
+        return resolvedPromises
+            .filter(it => it.status === 'fulfilled')
+            .map(it => it.value);
+    }
 
     fetchAllPlayersForTeam = async (teamId: number) => {
         let responseCursor: number = null;
@@ -71,13 +81,13 @@ export default class BallDontLieApiClient {
     fetchPlayersAtCursorByTeam = async (teamId: number, cursor?: number) => {
         let playerUrl = `${this.baseURL}/players?per_page=100&team_ids[]=${teamId}`;
         if(cursor) playerUrl += `&cursor=${cursor}`
-        const playerPaginatedResponse = await fetch(playerUrl, this.fetchOptions);
+        const playerPaginatedResponse = await this.fetchAdapter.fetch(playerUrl, this.fetchOptions);
         return await playerPaginatedResponse?.json() as PlayersResponse
     }
 
     fetchTeams = async () => {
         const teamUrl = `${this.baseURL}/teams`;
-        const teamResponse = await fetch(teamUrl, this.fetchOptions);
+        const teamResponse = await this.fetchAdapter.fetch(teamUrl, this.fetchOptions);
         const teamJson = await teamResponse?.json() as TeamsResponse
         const teamsById = teamJson?.data.map(it => ({ id: it.id, teamName: it.full_name }))
         return teamsById as [TeamById]

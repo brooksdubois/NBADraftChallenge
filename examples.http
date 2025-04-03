@@ -1,0 +1,19 @@
+GET http://localhost:3001/
+
+###
+GET https://api.balldontlie.io/v1/teams
+Authorization: {{ apiKeyHere }}
+
+###
+GET https://api.balldontlie.io/v1/players?cursor=2481&per_page=100&team_ids[]=1
+Authorization: {{ apiKeyHere }}
+
+###
+
+
+
+
+
+
+
+
