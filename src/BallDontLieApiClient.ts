@@ -1,5 +1,10 @@
 import * as R from 'ramda';
 
+interface TeamById {
+    id: number,
+    teamName: string
+}
+
 interface Player {
     draft_round: string,
 }
@@ -22,7 +27,6 @@ interface TeamsResponse {
     data:[Team]
 }
 
-
 export default class BallDontLieApiClient {
     fetchOptions: object
     baseURL = "https://api.balldontlie.io/v1";
@@ -37,14 +41,27 @@ export default class BallDontLieApiClient {
         };
     }
 
+    fetchAllPlayersForAllTeams = (allTeams: [TeamById]) =>
+        Promise.all(
+            allTeams.map(async (team) => {
+                const draftPicks = await this.fetchAllPlayersForTeam(team.id);
+                return {
+                    teamName: team.teamName,
+                    draftRounds: draftPicks,
+                };
+            })
+        );
+
     fetchAllPlayersForTeam = async (teamId: number) => {
         let responseCursor: number = null;
         let allPlayers = []
+        //loop through all the responses, paginating and collecting data
         do {
             const fetchedPlayers = await this.fetchPlayersAtCursorByTeam(teamId, responseCursor)
             allPlayers.push(fetchedPlayers.data.map(it => it.draft_round))
             responseCursor = fetchedPlayers.meta.next_cursor
         }while(responseCursor !== undefined)
+        //flatten into an array of counts by draft round
         return R.pipe(
             R.flatten,
             R.countBy(R.identity)
@@ -62,6 +79,7 @@ export default class BallDontLieApiClient {
         const teamUrl = `${this.baseURL}/teams`;
         const teamResponse = await fetch(teamUrl, this.fetchOptions);
         const teamJson = await teamResponse?.json() as TeamsResponse
-        return teamJson?.data
+        const teamsById = teamJson?.data.map(it => ({ id: it.id, teamName: it.full_name }))
+        return teamsById as [TeamById]
     }
 }
